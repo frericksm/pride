@@ -7,27 +7,30 @@ import (
 	"github.com/neelance/graphql-go"
 	"github.com/neelance/graphql-go/relay"
 
-	"github.com/frericksm/pride/bundles"
+	"github.com/frericksm/pride/bundle"
+	"github.com/frericksm/pride/resource"
 )
 
 var schema *graphql.Schema
 
 func init() {
 	var err error
-	schema, err = graphql.ParseSchema(bundles.Schema, &bundles.Resolver{})
+	schema, err = graphql.ParseSchema(bundle.Schema, &bundle.Resolver{})
 	if err != nil {
 		panic(err)
 	}
 }
 
-func main() {
+func main() {	
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write(page)
 	}))
 
 	http.Handle("/query", &relay.Handler{Schema: schema})
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.Handle("/bundles/", &resource.Handler{})
+
+	log.Fatal(http.ListenAndServe(":8101", nil))
 }
 
 var page = []byte(`
