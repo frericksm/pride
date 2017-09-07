@@ -11,14 +11,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/frericksm/pride/bundle"
+	"github.com/frericksm/pride/utils"
+	pcontext "github.com/frericksm/pride/context"	
 )
 
-func check(e error) {
-    if e != nil {
-        panic(e)
-    }
-}
 
 type Handler struct {}
 
@@ -30,34 +26,36 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	bundle_name := groups[1]
 	path := groups[2]
 
-	filename :=filepath.Join(bundle.BUNDLE_ROOT_DIR, bundle_name, path)
+	bundle_root_dir := pcontext.BundleRootDir(r.Context())
+
+	filename :=filepath.Join(bundle_root_dir, bundle_name, path)
 
 	if  r.Method == http.MethodGet {
 		content, err := ioutil.ReadFile(filename)
-		check(err)
+		utils.Check(err)
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Write(content)
 	} else if  r.Method == http.MethodPut {
 
 		f, err := os.Create(filename)
-		check(err)
+		utils.Check(err)
 		defer f.Close()
 
 		//fw := bufio.NewWriter(f)
 		_, err = io.Copy(f, r.Body)
-		check(err)
+		utils.Check(err)
 		f.Sync()
 		//fw.Flush()
 
 	} else if  r.Method == http.MethodPost {
 
 		f, err := os.Create(filename)
-		check(err)
+		utils.Check(err)
 		defer f.Close()
 
 		//fw := bufio.NewWriter(f)
 		_, err = io.Copy(f, r.Body)
-		check(err)
+		utils.Check(err)
 		f.Sync()
 		//fw.Flush()
 

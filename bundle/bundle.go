@@ -3,16 +3,16 @@
 package bundle
 
 import (
+	"context"
 //	"log"
 	"strings"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	//graphql "github.com/neelance/graphql-go"
+
+	pcontext "github.com/frericksm/pride/context"	
 )
-
-const BUNDLE_ROOT_DIR = "c:/5555/install"
-
 
 func check(e error) {
     if e != nil {
@@ -28,12 +28,16 @@ var Schema = `
 	}
 	# The query type, represents all of the entry points into our object graph
 	type Query {
+                # Queries a single file from a bundle
                 file(bundle_name: String!, path: String!): File
+                # Queries all bundles
                 all_bundles(): [Bundle]!
+                # Queries a single bundle
                 bundle(name: String!): Bundle
 	}
 	# The mutation type, represents all updates we can make to our data
 	type Mutation {
+                # Creates a bundle
 		create_bundle(name: String!): Bundle
 	}
 	# Represents a bundle
@@ -66,15 +70,17 @@ type bundle struct {
 
 type Resolver struct{}
 
-func (r *Resolver) All_bundles() []*bundleResolver {
+func (r *Resolver) All_bundles(ctx context.Context) []*bundleResolver {
 	var l []*bundleResolver
+	
+	bundle_root_dir := pcontext.BundleRootDir(ctx)
 
-	fileinfos, err := ioutil.ReadDir(BUNDLE_ROOT_DIR)
+	fileinfos, err := ioutil.ReadDir(bundle_root_dir)
 	check(err)
 
 	for _, file := range fileinfos {
 		name := file.Name()
-		path := filepath.Join(BUNDLE_ROOT_DIR, file.Name())
+		path := filepath.Join(bundle_root_dir, file.Name())
 		
 		l = append(l, &bundleResolver{
 			&bundle{
@@ -85,9 +91,10 @@ func (r *Resolver) All_bundles() []*bundleResolver {
 	return l
 }
 
-func (r *Resolver) Bundle(args struct{ Name string }) *bundleResolver {
+func (r *Resolver) Bundle(ctx context.Context, args struct{ Name string }) *bundleResolver {
 	
-	path := filepath.Join(BUNDLE_ROOT_DIR, args.Name)
+	bundle_root_dir := pcontext.BundleRootDir(ctx)
+	path := filepath.Join(bundle_root_dir, args.Name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -120,8 +127,10 @@ func (r *bundleResolver) Root() *fileResolver {
 	}
 }
 
-func (r *Resolver) Create_bundle(args *struct {Name string}) *bundleResolver {
-	bundle_dir := filepath.Join(BUNDLE_ROOT_DIR, args.Name)
+func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Name string}) *bundleResolver {
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)
+	bundle_dir := filepath.Join(bundle_root_dir, args.Name)
 	error := os.Mkdir(bundle_dir, 0755)
 	check(error)
 	new_bundle := &bundle{
@@ -139,9 +148,10 @@ type file struct {
 }
 
 
-func (r *Resolver) File(args struct{ BundleName, Path string }) *fileResolver {
+func (r *Resolver) File(ctx context.Context, args struct{ BundleName, Path string }) *fileResolver {
 	
-	bundle_path := filepath.Join(BUNDLE_ROOT_DIR, args.BundleName)
+	bundle_root_dir := pcontext.BundleRootDir(ctx)
+	bundle_path := filepath.Join(bundle_root_dir, args.BundleName)
 	_, err := os.Stat(bundle_path)
 	if os.IsNotExist(err) {
 		return nil
