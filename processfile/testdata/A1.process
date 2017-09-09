@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><process id="de.michael.A1" name="A1">
+  <description><![CDATA[Dies ist <keine><![ '#~/ Beschreibung]]></description>
+  <formal-parameters>
+    <formal-parameter direction="IN" hidden="false" id="59d989ee-464d-4d9b-aa16-f8ae98827251" name="Prozessname" required="false">
+      <description><![CDATA[Name des zu protokollierenden Prozesses]]></description>
+    </formal-parameter>
+    <formal-parameter direction="INOUT" hidden="false" id="95c1c0e7-2f1e-4af2-88e1-959ffc216908" name="Meldungstext" required="false">
+      <description><![CDATA[cljMeldungen]]></description>
+    </formal-parameter>
+    <formal-parameter direction="IN" hidden="false" id="7596aed6-1fd5-40f8-b849-5da338d0f2d4" name="protokollId" required="false">
+      <description><![CDATA[protokollID]]></description>
+    </formal-parameter>
+  </formal-parameters>
+  <variables/>
+  <properties/>
+  <activities>
+    <activity id="9118f203-b2de-4f4a-80eb-def19c1b2996" name="&lt;Start&gt;">
+      <body activity-type="EVENT" event-type="START">
+        <node-graphics-info coordinate-x="393" coordinate-y="21" height="30" width="30"/>
+      </body>
+      <transitions>
+        <transition id="29360481-d5be-4415-bcdd-533f218ae158" to="a45fcdf6-d7d6-4d8f-8e96-fe7e6cf108e5"/>
+      </transitions>
+    </activity>
+    <activity id="a45fcdf6-d7d6-4d8f-8e96-fe7e6cf108e5" name="Protokoll">
+      <body activity-type="IMPLEMENTATION" implementation-ref-id="de.fi.prosupport.task.ProtokollEintragSchreiben" implementation-type="TASK">
+        <data-mappings>
+          <data-mapping formal-parameter="kategorie">
+            <actual-parameter><![CDATA["FEHLER"]]></actual-parameter>
+          </data-mapping>
+          <data-mapping formal-parameter="protokollId">
+            <actual-parameter><![CDATA[protokollId]]></actual-parameter>
+          </data-mapping>
+          <data-mapping formal-parameter="eintrag">
+            <actual-parameter><![CDATA[(str "Prozess: " Prozessname " - Meldung: " (:meldungMitHoechsterFehlerklasse Meldungstext))]]></actual-parameter>
+          </data-mapping>
+        </data-mappings>
+        <node-graphics-info coordinate-x="347" coordinate-y="94" height="30" width="125"/>
+      </body>
+      <transitions>
+        <transition id="41456172-7d8c-4480-9472-33db4a12978a" to="fe90d47d-4eb5-40a4-aa1e-126d1e0b239d"/>
+      </transitions>
+    </activity>
+    <activity id="fe90d47d-4eb5-40a4-aa1e-126d1e0b239d" name="A1">
+      <body activity-type="IMPLEMENTATION" implementation-ref-id="version400.schufa026201504162opdvversion.haupt_schufa_026.Haupt_Schufa_026" implementation-type="SUB_FLOW">
+        <data-mappings>
+          <data-mapping formal-parameter="protokollId">
+            <actual-parameter><![CDATA[""]]></actual-parameter>
+          </data-mapping>
+        </data-mappings>
+        <node-graphics-info coordinate-x="383" coordinate-y="161" height="30" width="55"/>
+      </body>
+      <transitions>
+        <transition id="1" to="e94a0a3c-21eb-4773-b210-bea8bd8ae150"/>
+      </transitions>
+    </activity>
+    <activity id="e94a0a3c-21eb-4773-b210-bea8bd8ae150" name="A2">
+      <body activity-type="IMPLEMENTATION" implementation-ref-id="version400.epost_bsk20160726.epost_haupt_skb.EPost_Haupt_SKB" implementation-type="SUB_FLOW">
+        <data-mappings/>
+        <node-graphics-info coordinate-x="384" coordinate-y="229" height="30" width="55"/>
+      </body>
+      <transitions>
+        <transition id="1" to="8944fcd4-f497-4c7a-9699-9315fb980d4d"/>
+      </transitions>
+    </activity>
+    <activity id="8944fcd4-f497-4c7a-9699-9315fb980d4d" name="&lt;Ende&gt;">
+      <body activity-type="EVENT" event-type="END">
+        <node-graphics-info coordinate-x="397" coordinate-y="289" height="30" width="30"/>
+      </body>
+      <transitions/>
+    </activity>
+  </activities>
+</process>
