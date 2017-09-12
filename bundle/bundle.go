@@ -1,5 +1,4 @@
 // Package bundle provides a schema and resolver for bundle remote bundle management.
-
 package bundle
 
 import (
@@ -17,7 +16,7 @@ import (
 	"github.com/frericksm/pride/utils"	
 )
 
-
+// Das GraphqQL-Schema
 var Schema = `
 	schema {
 		query: Query
@@ -544,16 +543,3 @@ func (r *fileResolver) Resource_uri() string {
 	}
 	return ""
 }
-
-
-func Filter(vs []string, f func(string) bool) []string {
-    vsf := make([]string, 0)
-    for _, v := range vs {
-        if f(v) {
-            vsf = append(vsf, v)
-        }
-    }
-    return vsf
-}
-
-

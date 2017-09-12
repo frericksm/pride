@@ -1,3 +1,4 @@
+//Package main ist der Entrypoint in die Anwendung 'pride'
 package main
 
 import (
@@ -30,7 +31,7 @@ func init() {
 	}
 }
 
-// 
+// Liest das Verzeichnis in dem die Bundles liegen
 func bundleRootDir(c *cli.Context) string {
 
 	dir := c.GlobalString("dir")
@@ -43,6 +44,10 @@ func bundleRootDir(c *cli.Context) string {
 	return cwd
 }
 
+// Server startet einen HTTP-Server der 
+// a) unter der URI "/query" einen GraphQL-Endpunkt bereitstellt 
+// b) unter der URI "/" eine GraphiQL-Oberfläche anzeigt
+// c) under der URI "/bundles" das Lesen und Schreiben von Dateien eines Bundles ermöglicht.
 func serve(c *cli.Context) error {
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write(page)
@@ -71,11 +76,13 @@ func serve(c *cli.Context) error {
 	return nil
 }
 
+// Build erstellt eine Bundle-Datei (im OSGi-Format als PAR-File) 
 func build(c *cli.Context) error {
 	log.Println("Building ...")
 	return nil
 }
 
+// Der Einstiegspunkt 
 func main() {	
 	app := cli.NewApp()
 	app.Name = "pride"
