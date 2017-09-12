@@ -35,8 +35,23 @@ var Schema = `
 
 	# The mutation type, represents all updates we can make to our data
 	type Mutation {
-                # Creates a bundle
+                # Create bundle
 		create_bundle(bundle_symbolic_name: String!): Bundle
+
+                # Create file
+		create_file(bundle_symbolic_name: String!, path: String!, name: String!): File
+
+                # Create dir
+		create_dir(bundle_symbolic_name: String!, path: String!, name: String!): Directory
+
+                # Delete file
+		delete_file(bundle_symbolic_name: String!, path: String!): Boolean!
+
+                # Delete dir
+		delete_dir(bundle_symbolic_name: String!, path: String!): Boolean!
+
+                # Move filenode
+		move_filenode(bundle_symbolic_name: String!, source: String!, target: String!): Boolean!
 	}
 
 	# Represents a bundle
@@ -91,7 +106,7 @@ func checkBundleName(name string) error {
 	return nil	
 }
 func checkPath(path string) error {
-	if filepath.Clean(path) !=  path {
+	if filepath.ToSlash(filepath.Clean(path)) !=  filepath.ToSlash(path) {
 		return errors.New("Only clean paths are allowed. No '..', etc")
 	}
 	return nil
@@ -113,7 +128,13 @@ func (r *Resolver) All_bundles(ctx context.Context) []*bundleResolver {
 	utils.Check(err)
 	
 	for _, file := range fileinfos {
+		if !file.IsDir() {
+			continue
+		}
 		name := file.Name()
+		if strings.HasPrefix(".", name) {
+			continue
+		}
 		path := filepath.Join(bundle_root_dir, file.Name())
 		
 		l = append(l, &bundleResolver{
@@ -185,7 +206,7 @@ func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Bundle_symbo
 	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
 
 	if error := os.Mkdir(bundle_dir, 0755); os.IsExist(error) {
-		return nil, errors.New(fmt.Sprintf("A bundle with name '%s' already exists" , args.Bundle_symbolic_name))
+		return nil, errors.New(fmt.Sprintf("Bundle '%s' already exists" , args.Bundle_symbolic_name))
 	} else {		
 		utils.Check(error)
 	}
@@ -202,6 +223,160 @@ func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Bundle_symbo
 	return &bundleResolver{new_bundle}, nil
 }
 
+func (r *Resolver) Create_file(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*fileResolver, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return nil, error1
+	}
+
+	error2 := checkPath(args.Path)
+	if error2 != nil {
+		return nil, error2
+	}
+
+	error3 := checkPath(args.Name)
+	if error3 != nil {
+		return nil, error3
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	rel_file_path := filepath.ToSlash(filepath.Join(args.Path, args.Name))
+	filepath := filepath.Join(bundle_dir , rel_file_path)
+
+	if _, error := os.Stat(filepath); error == nil {
+		return nil, errors.New(fmt.Sprintf("A file '%s' already exists" , args.Name))
+	} 
+
+	f, error := os.Create(filepath)
+	if error != nil {
+		return nil, errors.New(fmt.Sprintf("File '%s' cannot be created" , args.Name))
+	} 
+
+	defer f.Close()
+
+	new_file := &file{
+		BundlePath: bundle_dir,
+		Path:       rel_file_path,
+		Name:       args.Name,
+	}
+	return &fileResolver{new_file}, nil
+}
+
+func (r *Resolver) Delete_file(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return false, error1
+	}
+
+	error2 := checkPath(args.Path)
+	if error2 != nil {
+		return false, error2
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	filepath := filepath.Join(bundle_dir , args.Path)
+
+	if _, error := os.Stat(filepath); os.IsNotExist(error) {
+		return false, errors.New(fmt.Sprintf("File '%s' does not exist" , args.Path))
+	} 
+
+	if error := os.Remove(filepath); error != nil {
+		return false, errors.New(fmt.Sprintf("File '%s' cannot be deleted" , args.Path))
+	} 
+
+	return true, nil
+}
+
+func (r *Resolver) Create_dir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*directoryResolver, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return nil, error1
+	}
+
+	error2 := checkPath(args.Path)
+	if error2 != nil {
+		return nil, error2
+	}
+
+	error3 := checkPath(args.Name)
+	if error3 != nil {
+		return nil, error3
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	rel_file_path := filepath.ToSlash(filepath.Join(args.Path, args.Name))
+	filepath := filepath.Join(bundle_dir , rel_file_path)
+
+	if error := os.Mkdir(filepath, 0755); os.IsExist(error) {
+		return nil, errors.New(fmt.Sprintf("Directory '%s' already exists" , args.Name))
+	} 
+
+	new_dir := &file{
+		BundlePath: bundle_dir,
+		Path:       rel_file_path,
+		Name:       args.Name,
+	}
+	return &directoryResolver{new_dir}, nil
+}
+
+func (r *Resolver) Delete_dir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return false, error1
+	}
+
+	error2 := checkPath(args.Path)
+	if error2 != nil {
+		return false, error2
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	filepath := filepath.Join(bundle_dir , args.Path)
+
+	if error := os.RemoveAll(filepath); error != nil {
+		return false, errors.New(fmt.Sprintf("Directory '%s' cannot be deleted" , args.Path))
+	} 
+
+	return true, nil
+}
+
+func (r *Resolver) Move_filenode(ctx context.Context, args *struct {Bundle_symbolic_name string; Source string; Target string}) (bool, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return false, error1
+	}
+
+	error2 := checkPath(args.Source)
+	if error2 != nil {
+		return false, error2
+	}
+
+	error3 := checkPath(args.Target)
+	if error3 != nil {
+		return false, error3
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	
+	oldpath := filepath.Join(bundle_dir , args.Source)
+	newpath := filepath.Join(bundle_dir , args.Target, filepath.Base(args.Source))
+
+	if error := os.Rename(oldpath, newpath); error != nil {
+		return false, error
+	} 
+
+	return true, nil
+}
 
 type fileNode interface {
 	Name() string
@@ -342,7 +517,6 @@ func (r *directoryResolver) Children() (*[]*fileNodeResolver, error) {
 	}
 	return &l, nil
 }
-
 
 type fileResolver struct {
 	f *file
