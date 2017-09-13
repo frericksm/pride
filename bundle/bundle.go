@@ -69,6 +69,8 @@ var Schema = `
                 name: String!
                 # Flag indicating if this file is a directory
                 isDir: Boolean!
+                # Last modified as seconds since unix time epoch
+                lastModified: Int!
         }
 
 
@@ -80,6 +82,8 @@ var Schema = `
                 name: String!
                 # Flag indicating if this file is a directory
                 isDir: Boolean!
+                # Last modified as seconds since unix time epoch
+                lastModified: Int!
                 # URI from where to read and write the content of the file 
                 resource_uri: String!
 	}
@@ -92,6 +96,8 @@ var Schema = `
                 name: String!
                 # Flag indicating if this file is a directory
                 isDir: Boolean!
+                # Last modified as seconds since unix time epoch
+                lastModified: Int!
                 # list of files in this directory (if a directory)
                 children: [FileNode]             
 	}
@@ -381,6 +387,7 @@ type fileNode interface {
 	Name() string
 	Path() string
 	IsDir() bool
+	LastModified() int32
 }
 
 type fileNodeResolver struct {
@@ -474,6 +481,12 @@ func (r *directoryResolver) IsDir() bool {
 	return fileInfo.IsDir()
 }
 
+func (r *directoryResolver) LastModified() int32 {
+	fileInfo, error := os.Stat(filepath.Join(r.f.BundlePath, r.f.Path))
+	utils.CheckNotExists(error)
+	return int32(fileInfo.ModTime().Unix())
+}
+
 
 func (r *directoryResolver) Children() (*[]*fileNodeResolver, error) {
 	fp := filepath.Join(r.f.BundlePath, r.f.Path)
@@ -534,6 +547,13 @@ func (r *fileResolver) IsDir() bool {
 	utils.CheckNotExists(error)
 	return fileInfo.IsDir()
 }
+
+func (r *fileResolver) LastModified() int32 {
+	fileInfo, error := os.Stat(filepath.Join(r.f.BundlePath, r.f.Path))
+	utils.CheckNotExists(error)
+	return int32(fileInfo.ModTime().Unix())
+}
+
 
 func (r *fileResolver) Resource_uri() string {
 	fileInfo, error := os.Stat(filepath.Join(r.f.BundlePath, r.f.Path))
