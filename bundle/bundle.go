@@ -25,7 +25,7 @@ var Schema = `
 	# The query type, represents all of the entry points into our object graph
 	type Query {
                 # Queries a single file from a bundle
-                filenode(bundle_name: String!, path: String!): FileNode
+                filenode(bundle_symbolic_name: String!, path: String!): FileNode
                 # Queries all bundles
                 all_bundles(): [Bundle]!
                 # Queries a single bundle
@@ -410,10 +410,10 @@ type file struct {
 	Name       string
 }
 
-func (r *Resolver) Filenode(ctx context.Context, args struct{ BundleName, Path string }) (*fileNodeResolver, error) {
+func (r *Resolver) Filenode(ctx context.Context, args struct{ BundleSymbolicName, Path string }) (*fileNodeResolver, error) {
 	
 	var error error
-	error = checkBundleName(args.BundleName)
+	error = checkBundleName(args.BundleSymbolicName)
 	if error != nil {
 		return nil, error
 	}
@@ -424,7 +424,7 @@ func (r *Resolver) Filenode(ctx context.Context, args struct{ BundleName, Path s
 	}
 
 	bundle_root_dir := pcontext.BundleRootDir(ctx)
-	bundle_path := filepath.Join(bundle_root_dir, args.BundleName)
+	bundle_path := filepath.Join(bundle_root_dir, args.BundleSymbolicName)
 	_, err := os.Stat(bundle_path)
 
 	if os.IsNotExist(err) {
