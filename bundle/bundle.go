@@ -29,7 +29,7 @@ var Schema = `
                 # Queries all bundles
                 all_bundles(): [Bundle]!
                 # Queries a single bundle
-                bundle(name: String!): Bundle
+                bundle(bundle_symbolic_name: String!): Bundle
 	}
 
 	# The mutation type, represents all updates we can make to our data
@@ -105,14 +105,35 @@ var Schema = `
 `
 
 func checkBundleName(name string) error {
-	if filepath.Base(name) !=  name {
+	if len([]rune(name)) == 0 {
+		return errors.New("A bundle name cannot be empty")
+	} else if filepath.Base(name) !=  name {
 		return errors.New("A bundle name cannot be a path. Has to be a simple name")
 	}
 	return nil	
 }
+
+func checkHidden(name string) error {
+
+	if strings.HasPrefix(name, ".") {
+		return errors.New("Hidden path segments are not allowed")
+	}
+	return nil
+}
+
+
 func checkPath(path string) error {
-	if filepath.ToSlash(filepath.Clean(path)) !=  filepath.ToSlash(path) {
-		return errors.New("Only clean paths are allowed. No '..', etc")
+	slashPathCleaned := filepath.ToSlash(filepath.Clean(path))
+	slashPath := filepath.ToSlash(path)
+	if slashPathCleaned != slashPath  {
+		return errors.New("Only clean paths are allowed. No '..', no ending /, etc")
+	}
+
+	for _, seg := range strings.Split(slashPath, "/") {
+		error2 := checkHidden(seg)
+		if error2 != nil {
+			return error2
+		}
 	}
 	return nil
 }
@@ -137,7 +158,7 @@ func (r *Resolver) All_bundles(ctx context.Context) []*bundleResolver {
 			continue
 		}
 		name := file.Name()
-		if strings.HasPrefix(".", name) {
+		if strings.HasPrefix(name , ".") {
 			continue
 		}
 		path := filepath.Join(bundle_root_dir, file.Name())
@@ -151,22 +172,28 @@ func (r *Resolver) All_bundles(ctx context.Context) []*bundleResolver {
 	return l
 }
 
-func (r *Resolver) Bundle(ctx context.Context, args struct{ Name string }) *bundleResolver {
+func (r *Resolver) Bundle(ctx context.Context, args struct{ BundleSymbolicName string }) (*bundleResolver, error) {
 	
 	bundle_root_dir := pcontext.BundleRootDir(ctx)
-	path := filepath.Join(bundle_root_dir, args.Name)
+
+	error2 := checkHidden(args.BundleSymbolicName)
+	if error2 != nil {
+		return nil, error2
+	}
+
+	path := filepath.Join(bundle_root_dir, args.BundleSymbolicName)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return nil
+		return nil, err
 	}
 	utils.Check(err)
 
 	return &bundleResolver{
 		&bundle{
 			BundleDir: path,
-			Name:      args.Name,
-		},
-	}
+			Name:      args.BundleSymbolicName,
+		}, 
+	}, nil
 }
 
 type bundleResolver struct {
