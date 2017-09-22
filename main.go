@@ -12,6 +12,7 @@ import (
 	"os"
 	"github.com/neelance/graphql-go"
 	"github.com/neelance/graphql-go/relay"
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/frericksm/pride/bundle"
 	"github.com/frericksm/pride/resource"
@@ -44,6 +45,14 @@ func bundleRootDir(c *cli.Context) string {
 	return cwd
 }
 
+func createFileWatcher() *fsnotify.Watcher {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		panic(err)
+	}
+	return watcher
+}
+
 // Server startet einen HTTP-Server der 
 // a) unter der URI "/query" einen GraphQL-Endpunkt bereitstellt 
 // b) unter der URI "/" eine GraphiQL-Oberfläche anzeigt
@@ -54,7 +63,14 @@ func serve(c *cli.Context) error {
 	}))
 
 	bundleRootDir := bundleRootDir(c)
+
+	w := createFileWatcher()
+	defer w.Close()
+	bundle.StartWatching(w, bundleRootDir)
+
 	log.Println(fmt.Sprintf("Serving directory: %s", bundleRootDir))
+	
+	
 	
 	ctxHandler1 := context.Handler{
 		BundleRootDir: bundleRootDir,

@@ -23,6 +23,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	slashed_path := filepath.ToSlash(r.RequestURI)
 	re , _ := regexp.Compile("bundles/(.+?)/resources/(.*)")
 	groups := re.FindStringSubmatch(slashed_path)
+	if len(groups) != 3 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - Bad request!"))
+		return
+	}
 	bundle_name := groups[1]
 	path := groups[2]
 

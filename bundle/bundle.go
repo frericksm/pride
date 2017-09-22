@@ -44,6 +44,9 @@ var Schema = `
 		create_dir(bundle_symbolic_name: String!, path: String!, name: String!): Directory
 
                 # Delete file
+		delete_bundle(bundle_symbolic_name: String!): Boolean!
+
+                # Delete file
 		delete_file(bundle_symbolic_name: String!, path: String!): Boolean!
 
                 # Delete dir
@@ -222,7 +225,7 @@ func createManifest(bundle_dir, Bundle_symbolic_name string) {
 	utils.Check(err2)
 	defer f.Close()
 
-	_, err3 := f.WriteString(fmt.Sprintf("Bundle-SymbolicName: %s\n", Bundle_symbolic_name))
+	_, err3 := f.WriteString(fmt.Sprintf("Bundle-SymbolicName: %s", Bundle_symbolic_name))
 	utils.Check(err3)
 	
 	f.Sync()
@@ -254,6 +257,28 @@ func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Bundle_symbo
 	}
 	return &bundleResolver{new_bundle}, nil
 }
+
+func (r *Resolver) Delete_bundle(ctx context.Context, args *struct {Bundle_symbolic_name string}) (bool, error) {
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	if error1 != nil {
+		return false, error1
+	}
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+
+	if _, error := os.Stat(bundle_dir); os.IsNotExist(error) {
+		return false, errors.New(fmt.Sprintf("Bundle '%s' does not exist" , args.Bundle_symbolic_name))
+	} 
+
+	if error := os.RemoveAll(bundle_dir); error != nil {
+		return false, errors.New(fmt.Sprintf("Bundle '%s' cannot be deleted" , args.Bundle_symbolic_name))
+	} 
+
+	return true, nil
+}
+
 
 func (r *Resolver) Create_file(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*fileResolver, error) {
 
