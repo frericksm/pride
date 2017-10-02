@@ -43,7 +43,7 @@ var Schema = `
                 # Create dir
 		create_dir(bundle_symbolic_name: String!, path: String!, name: String!): Directory
 
-                # Delete file
+                # Delete bundle
 		delete_bundle(bundle_symbolic_name: String!): Boolean!
 
                 # Delete file
@@ -337,8 +337,14 @@ func (r *Resolver) Delete_file(ctx context.Context, args *struct {Bundle_symboli
 	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
 	filepath := filepath.Join(bundle_dir , args.Path)
 
-	if _, error := os.Stat(filepath); os.IsNotExist(error) {
+	fi, error := os.Stat(filepath)
+
+	if  os.IsNotExist(error) {
 		return false, errors.New(fmt.Sprintf("File '%s' does not exist" , args.Path))
+	} 
+
+	if fi.IsDir() {
+		return false, errors.New(fmt.Sprintf("File '%s' is a directory. Use mutation 'delete_dir'" , args.Path))
 	} 
 
 	if error := os.Remove(filepath); error != nil {
@@ -397,6 +403,18 @@ func (r *Resolver) Delete_dir(ctx context.Context, args *struct {Bundle_symbolic
 	bundle_root_dir := pcontext.BundleRootDir(ctx)	
 	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
 	filepath := filepath.Join(bundle_dir , args.Path)
+
+
+	fi, error := os.Stat(filepath)
+
+	if  os.IsNotExist(error) {
+		return false, errors.New(fmt.Sprintf("File '%s' does not exist" , args.Path))
+	} 
+
+	if !fi.IsDir() {
+		return false, errors.New(fmt.Sprintf("File '%s' is not a directory. Use mutation 'delete_file'" , args.Path))
+	} 
+
 
 	if error := os.RemoveAll(filepath); error != nil {
 		return false, errors.New(fmt.Sprintf("Directory '%s' cannot be deleted" , args.Path))
