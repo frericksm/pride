@@ -2,39 +2,11 @@
 package bundle
 
 import (
-//	"context"
 	"log"
-//	"fmt"
-//	"strings"
-//	"errors"
-//	"io/ioutil"
 	"os"
 	"path/filepath"
-	//graphql "github.com/neelance/graphql-go"
-
-	//pcontext "github.com/frericksm/pride/context"	
-	//"github.com/frericksm/pride/utils"	
 	"github.com/fsnotify/fsnotify"
 )
-
-type Index struct {
-	bundle_name string;
-	hash_of_content_2_processes map[string][]string;
-	process_2_hash_of_content map[string][]string;
-	process_2_used_processes map[string][]string;
-	process_2_used_by_processes map[string][]string;
-}
-
-func create_index(bundleRootDir string) *Index {
-	var index = new(Index)
-	
-	index.hash_of_content_2_processes = make(map[string][]string)
-	index.process_2_hash_of_content = make(map[string][]string)
-	index.process_2_used_processes = make(map[string][]string)
-	index.process_2_used_by_processes = make(map[string][]string)
-	
-	return index
-}
 
 func create_walkTreeFunction(watcher *fsnotify.Watcher) func(path string, info os.FileInfo, err error) error {
 	return func(path string, info os.FileInfo, err error) error {
@@ -92,47 +64,6 @@ func UpdateWatcher() Adapter {
 	}
 }
 
-func UpdateIndexForNewDir() Adapter {
-	return func(h Handler) Handler {
-		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
-			if event.Op&fsnotify.Create == fsnotify.Create {
-				if fi, _ := os.Stat(event.Name); fi.IsDir() {
-					log.Println("UpdateIndexForNewDir: ", event.Name)
-					//filepath.Walk(event.Name, create_walkTreeFunction(watcher))
-				}
-			}
-			h.ServeWatcherEvent(watcher, event)  
-		})
-	}
-}
-
-func UpdateIndexForRemovedDir() Adapter {
-	return func(h Handler) Handler {
-		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
-			if event.Op&fsnotify.Remove == fsnotify.Remove {
-				log.Println("UpdateIndexForRemovedDir: ", event.Name)
-			}
-			h.ServeWatcherEvent(watcher, event)  
-		})
-	}
-}
-
-func UpdateIndexForModifiedDir() Adapter {
-	return func(h Handler) Handler {
-		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
-			if event.Op&fsnotify.Write == fsnotify.Write {
-				fi, er := os.Stat(event.Name)
-				if os.IsNotExist(er) {
-					//nothing to do
-				} else if fi.IsDir() {
-					log.Println("UpdateIndexForModifiedDir: ", event.Name)
-					//filepath.Walk(event.Name, create_walkTreeFunction(watcher))
-				}
-			}
-			h.ServeWatcherEvent(watcher, event)  
-		})
-	}
-}
 
 func LogEvent() Adapter {
 	return func(h Handler) Handler {
