@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ var Schema = `
                 # Queries a single file from a bundle
                 filenode(bundle_symbolic_name: String!, path: String!): FileNode
                 # Queries all bundles
-                all_bundles(): [Bundle]!
+                allBundles(): [Bundle]!
                 # Queries a single bundle
                 bundle(bundle_symbolic_name: String!): Bundle
 	}
@@ -35,25 +36,28 @@ var Schema = `
 	# The mutation type, represents all updates we can make to our data
 	type Mutation {
                 # Create bundle
-		create_bundle(bundle_symbolic_name: String!): Bundle
+		createBundle(bundle_symbolic_name: String!): Bundle
 
                 # Create file
-		create_file(bundle_symbolic_name: String!, path: String!, name: String!): File
+		createFile(bundle_symbolic_name: String!, path: String!, name: String!): File
 
                 # Create dir
-		create_dir(bundle_symbolic_name: String!, path: String!, name: String!): Directory
+		createDir(bundle_symbolic_name: String!, path: String!, name: String!): Directory
 
                 # Delete bundle
-		delete_bundle(bundle_symbolic_name: String!): Boolean!
+		deleteBundle(bundle_symbolic_name: String!): Boolean!
 
                 # Delete file
-		delete_file(bundle_symbolic_name: String!, path: String!): Boolean!
+		deleteFile(bundle_symbolic_name: String!, path: String!): Boolean!
 
                 # Delete dir
-		delete_dir(bundle_symbolic_name: String!, path: String!): Boolean!
+		deleteDir(bundle_symbolic_name: String!, path: String!): Boolean!
 
-                # Move filenode
-		move_filenode(bundle_symbolic_name: String!, source: String!, target: String!): Boolean!
+                # Copy filenode from path 'source' to a filenode at path 'destination' 
+		copy(bundle_symbolic_name: String!, source: String!, destination: String!): Boolean!
+
+                # Move filenode from path 'source' to a filenode at path 'destination' 
+		move(bundle_symbolic_name: String!, source: String!, destination: String!): Boolean!
 	}
 
 	# Represents a bundle
@@ -148,7 +152,7 @@ type bundle struct {
 
 type Resolver struct{}
 
-func (r *Resolver) All_bundles(ctx context.Context) []*bundleResolver {
+func (r *Resolver) AllBundles(ctx context.Context) []*bundleResolver {
 	var l []*bundleResolver
 	
 	bundle_root_dir := pcontext.BundleRootDir(ctx)
@@ -231,7 +235,7 @@ func createManifest(bundle_dir, Bundle_symbolic_name string) {
 	f.Sync()
 }
 
-func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Bundle_symbolic_name string}) (*bundleResolver, error) {
+func (r *Resolver) CreateBundle(ctx context.Context, args *struct {Bundle_symbolic_name string}) (*bundleResolver, error) {
 
 	error := checkBundleName(args.Bundle_symbolic_name)
 	if error != nil {
@@ -258,7 +262,7 @@ func (r *Resolver) Create_bundle(ctx context.Context, args *struct {Bundle_symbo
 	return &bundleResolver{new_bundle}, nil
 }
 
-func (r *Resolver) Delete_bundle(ctx context.Context, args *struct {Bundle_symbolic_name string}) (bool, error) {
+func (r *Resolver) DeleteBundle(ctx context.Context, args *struct {Bundle_symbolic_name string}) (bool, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -280,7 +284,7 @@ func (r *Resolver) Delete_bundle(ctx context.Context, args *struct {Bundle_symbo
 }
 
 
-func (r *Resolver) Create_file(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*fileResolver, error) {
+func (r *Resolver) CreateFile(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*fileResolver, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -321,7 +325,7 @@ func (r *Resolver) Create_file(ctx context.Context, args *struct {Bundle_symboli
 	return &fileResolver{new_file}, nil
 }
 
-func (r *Resolver) Delete_file(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
+func (r *Resolver) DeleteFile(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -344,7 +348,7 @@ func (r *Resolver) Delete_file(ctx context.Context, args *struct {Bundle_symboli
 	} 
 
 	if fi.IsDir() {
-		return false, errors.New(fmt.Sprintf("File '%s' is a directory. Use mutation 'delete_dir'" , args.Path))
+		return false, errors.New(fmt.Sprintf("File '%s' is a directory. Use mutation 'deleteDir'" , args.Path))
 	} 
 
 	if error := os.Remove(filepath); error != nil {
@@ -354,7 +358,7 @@ func (r *Resolver) Delete_file(ctx context.Context, args *struct {Bundle_symboli
 	return true, nil
 }
 
-func (r *Resolver) Create_dir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*directoryResolver, error) {
+func (r *Resolver) CreateDir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string; Name string}) (*directoryResolver, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -388,7 +392,7 @@ func (r *Resolver) Create_dir(ctx context.Context, args *struct {Bundle_symbolic
 	return &directoryResolver{new_dir}, nil
 }
 
-func (r *Resolver) Delete_dir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
+func (r *Resolver) DeleteDir(ctx context.Context, args *struct {Bundle_symbolic_name string; Path string}) (bool, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -412,7 +416,7 @@ func (r *Resolver) Delete_dir(ctx context.Context, args *struct {Bundle_symbolic
 	} 
 
 	if !fi.IsDir() {
-		return false, errors.New(fmt.Sprintf("File '%s' is not a directory. Use mutation 'delete_file'" , args.Path))
+		return false, errors.New(fmt.Sprintf("File '%s' is not a directory. Use mutation 'deleteFile'" , args.Path))
 	} 
 
 
@@ -423,7 +427,7 @@ func (r *Resolver) Delete_dir(ctx context.Context, args *struct {Bundle_symbolic
 	return true, nil
 }
 
-func (r *Resolver) Move_filenode(ctx context.Context, args *struct {Bundle_symbolic_name string; Source string; Target string}) (bool, error) {
+func (r *Resolver) Move(ctx context.Context, args *struct {Bundle_symbolic_name string; Source string; Destination string}) (bool, error) {
 
 	error1 := checkBundleName(args.Bundle_symbolic_name)
 	if error1 != nil {
@@ -435,7 +439,7 @@ func (r *Resolver) Move_filenode(ctx context.Context, args *struct {Bundle_symbo
 		return false, error2
 	}
 
-	error3 := checkPath(args.Target)
+	error3 := checkPath(args.Destination)
 	if error3 != nil {
 		return false, error3
 	}
@@ -444,13 +448,86 @@ func (r *Resolver) Move_filenode(ctx context.Context, args *struct {Bundle_symbo
 	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
 	
 	oldpath := filepath.Join(bundle_dir , args.Source)
-	newpath := filepath.Join(bundle_dir , args.Target, filepath.Base(args.Source))
+	newpath := filepath.Join(bundle_dir , args.Destination, filepath.Base(args.Source))
 
 	if error := os.Rename(oldpath, newpath); error != nil {
 		return false, error
 	} 
 
 	return true, nil
+}
+
+func (r *Resolver) Copy(ctx context.Context, args *struct {Bundle_symbolic_name string; Source string; Destination string}) (bool, error) {
+
+
+	error1 := checkBundleName(args.Bundle_symbolic_name)
+	utils.Check(error1)
+
+	error2 := checkPath(args.Source)
+	utils.Check(error2)
+
+	error3 := checkPath(args.Destination)
+	utils.Check(error3)
+
+	bundle_root_dir := pcontext.BundleRootDir(ctx)	
+	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
+	
+	srcpath := filepath.Join(bundle_dir , args.Source)
+
+	_, err1 := os.Stat(srcpath)
+	utils.Check(err1)
+
+	destpath := filepath.Join(bundle_dir , args.Destination)
+
+	_, err2 := os.Stat(destpath)
+
+
+	if err2 == nil {
+		return false, errors.New(fmt.Sprintf("Destination '%s' already exists" , srcpath))
+		//panic(errors.New(fmt.Sprintf("Destination '%s' already exists" , srcpath)))
+	} else if !os.IsNotExist(err2) {
+		return false, err2
+	}
+
+	error := filepath.Walk(srcpath, copyWalkTreeFunction(srcpath, destpath))
+	utils.Check(error)
+
+	return true, nil
+}
+
+func copyWalkTreeFunction(srcpath, destpath string) func(path string, info os.FileInfo, err error) error {
+	return func(path string, info os.FileInfo, err error) error {
+	
+		rel , e1 := filepath.Rel(srcpath, path)
+		if e1 != nil {
+			return e1
+		}
+		var dest = filepath.Join(destpath, rel)
+		if info.IsDir() {
+			err1 := os.Mkdir(dest, 0755)
+			if err1 != nil {
+				return err1
+			}
+		} else {
+			fs, err1 := os.Open(path)
+			if err1 != nil {
+				return err1
+			}
+			defer fs.Close()
+			
+
+			fd, err2 := os.Create(dest)
+			if err2 != nil {
+				return err2
+			}
+			defer fd.Close()
+			
+			_, err = io.Copy(fd, fs)
+			utils.Check(err)
+			fd.Sync()
+		}
+		return nil;
+	}
 }
 
 type fileNode interface {

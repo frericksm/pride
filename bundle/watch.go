@@ -8,7 +8,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-func create_walkTreeFunction(watcher *fsnotify.Watcher) func(path string, info os.FileInfo, err error) error {
+func watcherWalkTreeFunction(watcher *fsnotify.Watcher) func(path string, info os.FileInfo, err error) error {
 	return func(path string, info os.FileInfo, err error) error {
 		
 		err = watcher.Add(path)
@@ -48,7 +48,7 @@ func UpdateWatcher() Adapter {
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if fi, _ := os.Stat(event.Name); fi.IsDir() {
 					log.Println("UpdateWatcher: add ", event.Name)
-					filepath.Walk(event.Name, create_walkTreeFunction(watcher))
+					filepath.Walk(event.Name, watcherWalkTreeFunction(watcher))
 				}
 			} else if event.Op&fsnotify.Rename == fsnotify.Rename {
 				log.Println("UpdateWatcher: remove ", event.Name)
@@ -83,12 +83,13 @@ func (h *NoopHandler) ServeWatcherEvent(watcher *fsnotify.Watcher, event *fsnoti
 
 
 func StartWatching(watcher *fsnotify.Watcher, bundleRootDir string) {
+	index := createIndex(bundleRootDir)
 	handler := Adapt(&NoopHandler{},
-		// LogEvent(),
+		LogEvent(),
 		UpdateWatcher(), 
-		UpdateIndexForNewDir(), 
-		UpdateIndexForRemovedDir(), 
-		UpdateIndexForModifiedDir() )
+		UpdateIndexForNewDir(index), 
+		UpdateIndexForRemovedDir(index), 
+		UpdateIndexForModifiedDir(index) )
 	go func() {
 		for {
 			select {
@@ -99,5 +100,5 @@ func StartWatching(watcher *fsnotify.Watcher, bundleRootDir string) {
 			}
 		}
 	}()
-	filepath.Walk(bundleRootDir, create_walkTreeFunction(watcher))
+	filepath.Walk(bundleRootDir, watcherWalkTreeFunction(watcher))
 }

@@ -3,7 +3,12 @@ package bundle
 
 import (
 	"log"
+	"fmt"
 	"os"
+	"io/ioutil"
+	"github.com/frericksm/pride/utils"	
+	"github.com/frericksm/pride/processfile"	
+	"strings"
 	"path/filepath"
 	"github.com/fsnotify/fsnotify"
 )
@@ -21,42 +26,64 @@ type Index struct {
 	bundle_name_2_bundle_index map[string]*BundleIndex
 }
 
-func uses_processes(uses_processes_map *map[string][]string) func(path string, info os.FileInfo, err error) error {
+func process_definition_id(bundle_dir string, path string) string {
+	p0, err := filepath.Rel(bundle_dir, path)
+	utils.Check(err)
+	p1 :=  strings.Replace(p0, "/" ,".", -1)
+	if strings.Index(p1, "/") == 0 {
+		return p1[1:strings.LastIndex(p1, ".process")]
+	} else {
+		return p1[0:strings.LastIndex(p1, ".process")]
+	}
+}
+
+func file_path(bundle_dir string, process_definition_id string) string {
+	return filepath.Join(bundle_dir, strings.Replace(process_definition_id, "." ,"/", -1) + ".process")
+}
+
+func uses_processes(bundle_dir string, uses_processes_map *map[string][]string) func(path string, info os.FileInfo, err error) error {
 	return func(path string, info os.FileInfo, err error) error {
 		
-		if ... {
+
+		if strings.Contains(filepath.Base(path), ".process") {
+			refs := make([]string, 0)
 			content := processfile.FileContent(path)
-			p := processfile.FromBytes(content)
-			
-			
+			if len(content) != 0 {
+				p := processfile.FromBytes(content)
+				for _, act := range p.Activities {
+					if act.Body.ImplementationType == "SUB_FLOW" {
+						refs = append(refs, act.Body.ImplementationRefId)
+					}
+				}
+			}
+			(*uses_processes_map)[process_definition_id(bundle_dir, path)] =  refs
 		}
-		
-		
-		err = watcher.Add(path)
-		if err != nil {
-			log.Fatal(err)
-			return err
-		}
+
+		log.Println(fmt.Sprintf("bundle: %s, uses_processes_map: %s", bundle_dir, uses_processes_map))
+
 		
 		return nil;
 	}
 }
 
-
-func createBundleIndex(path string, name sting) *BundleIndex {
+ 
+func createBundleIndex(bundle_dir string, bundle_name string) *BundleIndex {
 
 	uses_processes_map := make(map[string][]string)
-	filepath.Walk(bundleRootDir, uses_processes(uses_processes_map))
+
+	filepath.Walk(bundle_dir, uses_processes(bundle_dir, &uses_processes_map))
 	
 	return &BundleIndex{
-		bundle_name: name,
+		bundle_name: bundle_name,
 		uses_processes: uses_processes_map,
 	}	
+
 }
 
-func CreateIndex(bundle_root_dir string) *Index {
+func createIndex(bundle_root_dir string) *Index {
 
-	m2bi := make(map[string]BundleIndex)
+	m2bi := make(map[string]*BundleIndex)
+
 	fileinfos, err := ioutil.ReadDir(bundle_root_dir)
 	utils.Check(err)
 	
@@ -72,6 +99,7 @@ func CreateIndex(bundle_root_dir string) *Index {
 
 		m2bi[name] = createBundleIndex(path, name)
 	}
+
 	return &Index{
 		bundle_root_dir: bundle_root_dir,
 		bundle_name_2_bundle_index: m2bi,
@@ -93,7 +121,7 @@ func create_walkTreeFunction(watcher *fsnotify.Watcher) func(path string, info o
 }
 */
 
-func UpdateIndexForNewDir() Adapter {
+func UpdateIndexForNewDir(index *Index) Adapter {
 	return func(h Handler) Handler {
 		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
 			if event.Op&fsnotify.Create == fsnotify.Create {
@@ -107,7 +135,7 @@ func UpdateIndexForNewDir() Adapter {
 	}
 }
 
-func UpdateIndexForRemovedDir() Adapter {
+func UpdateIndexForRemovedDir(index *Index) Adapter {
 	return func(h Handler) Handler {
 		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
 			if event.Op&fsnotify.Remove == fsnotify.Remove {
@@ -118,7 +146,7 @@ func UpdateIndexForRemovedDir() Adapter {
 	}
 }
 
-func UpdateIndexForModifiedDir() Adapter {
+func UpdateIndexForModifiedDir(index *Index) Adapter {
 	return func(h Handler) Handler {
 		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
 			if event.Op&fsnotify.Write == fsnotify.Write {
