@@ -448,7 +448,8 @@ func (r *Resolver) Move(ctx context.Context, args *struct {Bundle_symbolic_name 
 	bundle_dir := filepath.Join(bundle_root_dir, filepath.Clean(args.Bundle_symbolic_name))
 	
 	oldpath := filepath.Join(bundle_dir , args.Source)
-	newpath := filepath.Join(bundle_dir , args.Destination, filepath.Base(args.Source))
+	//newpath := filepath.Join(bundle_dir , args.Destination, filepath.Base(args.Source))
+	newpath := filepath.Join(bundle_dir , args.Destination)
 
 	if error := os.Rename(oldpath, newpath); error != nil {
 		return false, error

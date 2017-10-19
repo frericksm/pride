@@ -11,6 +11,9 @@ import (
 func watcherWalkTreeFunction(watcher *fsnotify.Watcher) func(path string, info os.FileInfo, err error) error {
 	return func(path string, info os.FileInfo, err error) error {
 		
+		if err != nil {
+			return err
+		}
 		err = watcher.Add(path)
 		if err != nil {
 			log.Fatal(err)
@@ -23,7 +26,7 @@ func watcherWalkTreeFunction(watcher *fsnotify.Watcher) func(path string, info o
 
 
 type Handler interface {
-        ServeWatcherEvent(*fsnotify.Watcher, *fsnotify.Event)
+        ServeWatcherEvent(*fsnotify.Watcher, *fsnotify.Event, *Index) *Index
 }
 
 type Adapter func(Handler) Handler
@@ -36,30 +39,33 @@ func Adapt(h Handler, adapters ...Adapter) Handler {
 	return h
 }
 
-type HandlerFunc func(*fsnotify.Watcher, *fsnotify.Event)
+type HandlerFunc func(*fsnotify.Watcher, *fsnotify.Event, *Index) *Index
 
-func (f HandlerFunc) ServeWatcherEvent(watcher *fsnotify.Watcher, event *fsnotify.Event) {
-  	f(watcher, event)
+func (f HandlerFunc) ServeWatcherEvent(watcher *fsnotify.Watcher, event *fsnotify.Event, index *Index) *Index {
+  	return f(watcher, event, index)
 }
 
 func UpdateWatcher() Adapter {
 	return func(h Handler) Handler {
-		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
+		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event, index *Index) *Index {
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				if fi, _ := os.Stat(event.Name); fi.IsDir() {
-					log.Println("UpdateWatcher: add ", event.Name)
+				log.Println("UpdateWatcher: add ", event.Name)
+
+				fi, err := os.Stat(event.Name)
+				if !os.IsNotExist(err) && fi.IsDir() {
+					//log.Println("UpdateWatcher: add ", event.Name)
 					filepath.Walk(event.Name, watcherWalkTreeFunction(watcher))
 				}
 			} else if event.Op&fsnotify.Rename == fsnotify.Rename {
-				log.Println("UpdateWatcher: remove ", event.Name)
+				//log.Println("UpdateWatcher: remove ", event.Name)
 				watcher.Remove(event.Name)
 			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-				log.Println("UpdateWatcher: remove ", event.Name)
+				//log.Println("UpdateWatcher: remove ", event.Name)
 				watcher.Remove(event.Name)
 			}
 			
 			
-			h.ServeWatcherEvent(watcher, event)  
+			return h.ServeWatcherEvent(watcher, event, index)  
 		})
 	}
 }
@@ -67,9 +73,9 @@ func UpdateWatcher() Adapter {
 
 func LogEvent() Adapter {
 	return func(h Handler) Handler {
-		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event) {
+		return HandlerFunc(func(watcher *fsnotify.Watcher, event *fsnotify.Event, index *Index) *Index {
 			log.Println("Event: ", event)
-			h.ServeWatcherEvent(watcher, event)  
+			return h.ServeWatcherEvent(watcher, event, index)  
 		})
 	}
 }
@@ -77,28 +83,34 @@ func LogEvent() Adapter {
 
 type NoopHandler struct {}
 
-func (h *NoopHandler) ServeWatcherEvent(watcher *fsnotify.Watcher, event *fsnotify.Event) {
-	
+func (h *NoopHandler) ServeWatcherEvent(watcher *fsnotify.Watcher, event *fsnotify.Event, index *Index) *Index {
+	return index
 }
 
 
 func StartWatching(watcher *fsnotify.Watcher, bundleRootDir string) {
+
 	index := createIndex(bundleRootDir)
+
+
 	handler := Adapt(&NoopHandler{},
-		LogEvent(),
+//		LogEvent(),
 		UpdateWatcher(), 
-		UpdateIndexForNewDir(index), 
-		UpdateIndexForRemovedDir(index), 
-		UpdateIndexForModifiedDir(index) )
+//		UpdateIndexForNewDir(), 
+//		UpdateIndexForRemovedDir(), 
+		UpdateIndexForModifiedDir(), )
+
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				handler.ServeWatcherEvent(watcher, &event)
+				//log.Println("event:", event)
+				index = handler.ServeWatcherEvent(watcher, &event, index)
 			case err := <-watcher.Errors:
 				log.Println("error:", err)
 			}
 		}
 	}()
+
 	filepath.Walk(bundleRootDir, watcherWalkTreeFunction(watcher))
 }
